@@ -190,8 +190,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                 {
                     Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(Symbols.SPY));
                     Assert.IsTrue(ts.Slice.Keys.Contains(Symbols.SPY));
-                    Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(_equityUsaUserUniverse));
-                    Assert.AreEqual(2, dataQueueHandler.Subscriptions.Count);
+                    Assert.AreEqual(1, dataQueueHandler.Subscriptions.Count);
 
                     algorithm.AddSecurities(forex: new List<string> { "EURUSD" });
                     emittedData = true;
@@ -201,19 +200,16 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                     if (dataQueueHandler.Subscriptions.Count == 3)
                     {
                         Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(Symbols.SPY));
-                        Assert.IsTrue(ts.Slice.Keys.Contains(Symbols.SPY));
-                        Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(_equityUsaUserUniverse));
-                        // first it will add the universe
                         Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(_forexFxcmUserUniverse));
+                        Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(Symbols.EURUSD));
                     }
-                    else if (dataQueueHandler.Subscriptions.Count == 4
+                    else if (dataQueueHandler.Subscriptions.Count == 2
                              && ts.Slice.HasData) // there could be some slices with no data
                     {
                         Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(Symbols.SPY));
                         Assert.IsTrue(ts.Slice.Keys.Contains(Symbols.SPY));
-                        Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(_equityUsaUserUniverse));
-                        Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(Symbols.EURUSD));
-                        Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(_forexFxcmUserUniverse));
+                        Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(Symbols.EURUSD)
+                                      || dataQueueHandler.Subscriptions.Contains(_forexFxcmUserUniverse));
                         // Might delay a couple of Slices to send over the data, so we will count them
                         // and assert a minimum amount
                         if (ts.Slice.Keys.Contains(Symbols.EURUSD))
@@ -239,6 +235,8 @@ namespace QuantConnect.Tests.Engine.DataFeeds
         {
             DataManager dataManager;
             var algorithm = new AlgorithmStub(out dataManager, forex: new List<string> { "EURUSD" });
+            algorithm.UniverseSettings.Resolution = Resolution.Second; // Default is Minute and we need something faster
+            algorithm.UniverseSettings.ExtendedMarketHours = true; // Current _startDate is at extended market hours
 
             FuncDataQueueHandler dataQueueHandler;
             var feed = RunDataFeed(algorithm, out dataQueueHandler, dataManager);
@@ -249,23 +247,22 @@ namespace QuantConnect.Tests.Engine.DataFeeds
             {
                 if (!firstTime)
                 {
-                    Assert.AreEqual(2, dataQueueHandler.Subscriptions.Count);
-                    algorithm.UniverseSettings.Resolution = Resolution.Second; // Default is Minute and we need something faster
-                    algorithm.UniverseSettings.ExtendedMarketHours = true; // Current _startDate is at extended market hours
+                    Assert.AreEqual(1, dataQueueHandler.Subscriptions.Count);
                     algorithm.AddUniverse("TestUniverse", time => new List<string> { "AAPL", "SPY" });
                     firstTime = true;
                 }
                 else
                 {
-                    if (dataQueueHandler.Subscriptions.Count == 3)
+                    if (dataQueueHandler.Subscriptions.Count == 2)
                     {
                         Assert.AreEqual(1, dataQueueHandler.Subscriptions.Count(x => x.Value.Contains("TESTUNIVERSE")));
                     }
-                    else if (dataQueueHandler.Subscriptions.Count == 5)
+                    else if(dataQueueHandler.Subscriptions.Count == 4)
                     {
+                        Assert.AreEqual(1, dataQueueHandler.Subscriptions.Count(x => x.Value.Contains("TESTUNIVERSE")));
                         Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(Symbols.SPY));
                         Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(Symbols.AAPL));
-                        Assert.AreEqual(1, dataQueueHandler.Subscriptions.Count(x => x.Value.Contains("TESTUNIVERSE")));
+                        Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(Symbols.EURUSD));
                         // Might delay a couple of Slices to send over the data, so we will count them and assert a minimum amount
                         if (ts.Slice.Keys.Contains(Symbols.AAPL)
                             && ts.Slice.Keys.Contains(Symbols.SPY))
@@ -303,21 +300,19 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                 {
                     Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(Symbols.SPY));
                     Assert.IsTrue(ts.Slice.Keys.Contains(Symbols.SPY));
-                    Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(_equityUsaUserUniverse));
-                    Assert.AreEqual(2, dataQueueHandler.Subscriptions.Count);
+                    Assert.AreEqual(1, dataQueueHandler.Subscriptions.Count);
 
                     algorithm.AddSecurities(equities: new List<string> { "AAPL" });
                     emittedData = true;
                 }
                 else
                 {
-                    if (dataQueueHandler.Subscriptions.Count == 3
+                    if (dataQueueHandler.Subscriptions.Count == 2
                         && ts.Slice.HasData) // there could be some slices with no data
                     {
                         Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(Symbols.SPY));
                         Assert.IsTrue(ts.Slice.Keys.Contains(Symbols.SPY));
                         Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(Symbols.AAPL));
-                        Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(_equityUsaUserUniverse));
                         // Might delay a couple of Slices to send over the data, so we will count them
                         // and assert a minimum amount
                         if (ts.Slice.Keys.Contains(Symbols.AAPL))
@@ -354,8 +349,6 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                 if (!emittedData)
                 {
                     currentSubscriptionCount = dataQueueHandler.Subscriptions.Count;
-                    Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(_equityUsaUserUniverse));
-                    Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(_forexFxcmUserUniverse));
                     Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(Symbols.SPY));
                     Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(Symbols.EURUSD));
                     feed.RemoveSubscription(feed.Subscriptions.Single(sub => sub.Configuration.Symbol == Symbols.SPY).Configuration);
@@ -366,8 +359,6 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                     Assert.AreEqual(currentSubscriptionCount - 1, dataQueueHandler.Subscriptions.Count);
                     Assert.IsFalse(dataQueueHandler.Subscriptions.Contains(Symbols.SPY));
                     Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(Symbols.EURUSD));
-                    Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(_equityUsaUserUniverse));
-                    Assert.IsTrue(dataQueueHandler.Subscriptions.Contains(_forexFxcmUserUniverse));
                 }
             });
 
